@@ -27,6 +27,7 @@ public class Decals {
 	}
 	
 	public static void dispose() {
+		if (dBatch != null)
 		dBatch.dispose();
 		
 	}

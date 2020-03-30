@@ -77,44 +77,29 @@ public class Game extends ApplicationAdapter implements InputProcessor {
 	
 	public static Random gameRandom;
 	
-	//Camera
-	public PerspectiveCamera cam;
 	public static Camera gameCamera;
-	public int camx, camy, camz;
-	//public FirstPersonCameraController fpcc;
-	public CameraPlayer cPlayer;
-	public boolean isMoving = false;
-	//decal
-	public ObjectsUniformSetter objectsUniformSetter;
+	
 	//UI
 	public Stage stage;
 	public Label label;
 	public BitmapFont font;
 	
-	//FrameBuffer
-	public FrameBuffer buffer;
-	public TextureRegion bufferRegion;
-	public SpriteBatch sBatch;
-	
 	IConfig iConfig;
+	
+	public static GameState state;
+	
+	public static void setState(GameState state) {
+		Game.state = state;
+		
+	}
+	
+	public static float time = 0;
 	
 	public Game(IConfig iConfig) {
 		super();
 		this.iConfig = iConfig;
 		
 	}
-	
-	FloorArray floorArray;
-	BlockArray blockArray;
-	CeilArray ceilArray;
-	
-	public HashMap<Integer, GameObject> objects;
-	
-	public static float time;
-	
-	//game logic
-	public Map gameMap;
-	public UserMap userMap;
 	
 	@Override
 	public void create () {
@@ -123,15 +108,7 @@ public class Game extends ApplicationAdapter implements InputProcessor {
 		InputMultiplexer multiplexer = new InputMultiplexer();
 		multiplexer.addProcessor(this);
 		Gdx.input.setInputProcessor(multiplexer);
-		//camera
-		cam = new PerspectiveCamera(67, Gdx.graphics.getWidth()/PIXEL_FACTOR,
-										Gdx.graphics.getHeight()/PIXEL_FACTOR);
-		cam.position.set(1f, 0f, 1f);
-		cam.direction.set(1, 0, 0);
-		cam.near = 0.1f;
-		cam.far = 300f;
-		cam.update();
-		Game.gameCamera = cam;
+		
 		//ui
 		stage = new Stage();
 		font = new BitmapFont();
@@ -141,39 +118,17 @@ public class Game extends ApplicationAdapter implements InputProcessor {
 		stage.addActor(label);
 		//decals
 		//dBatch = new DecalBatch(new DecalGroupStrategy(cam, Shaders.blockShader));
-		objectsUniformSetter = new ObjectsUniformSetter();
-		//dBatchObjects = new DecalBatch(new DecalGroupStrategy(cam, Shaders.objectShader, objectsUniformSetter));
-		Decals.initDecalBatch(Shaders.blockShader, objectsUniformSetter);
-		//buffer
-		buffer = new FrameBuffer(Format.RGBA8888, (int)(Gdx.graphics.getWidth()/PIXEL_FACTOR),
-												(int)(Gdx.graphics.getHeight()/PIXEL_FACTOR), true);
-		buffer.getColorBufferTexture().setFilter(TextureFilter.Nearest, TextureFilter.Nearest);
-		bufferRegion = new TextureRegion(buffer.getColorBufferTexture());
-		bufferRegion.flip(false, true);
-		sBatch = new SpriteBatch();
 		
-		gameRandom = new Random();
-		initGame();
+		gameRandom = new Random();	
 		
-	}
-	
-	public void initGame() {
-		gameMap = new Map(gameRandom);
-		userMap = new UserMap(gameMap.array);
-		floorArray = new FloorArray(gameMap);
-		blockArray = new BlockArray(gameMap);
-		ceilArray = new CeilArray(gameMap);
-		
-		objects = new HashMap<Integer, GameObject>();
-		
-		cPlayer = new CameraPlayer(cam, gameMap);
-		cam.position.x = gameMap.rooms.get(0).x+1;
-		cam.position.z = gameMap.rooms.get(0).y+1;
+		state = new MenuState();
 		
 	}
 
 	@Override
 	public void render () {
+		Gdx.gl.glClearColor(0, 0, 0, 1);
+		Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT | GL20.GL_DEPTH_BUFFER_BIT);
 		update(Gdx.graphics.getDeltaTime());
 		draw();
 		gui();
@@ -181,60 +136,20 @@ public class Game extends ApplicationAdapter implements InputProcessor {
 	}
 	
 	public void gui() {
-		label.setText("FPS: "+Gdx.graphics.getFramesPerSecond()+" xyz: "+camx+" "+camy+" "+camz);
+		label.setText("FPS: "+Gdx.graphics.getFramesPerSecond()+" xyz: "+PlayState.camx+" "+PlayState.camy+" "+PlayState.camz);
 		stage.draw();
+		state.gui();
 		
 	}
 	
 	
 	public void update(float delta) {
-		floorArray.update(delta, camx, camz);
-		ceilArray.update(delta, camx, camz);
-		blockArray.update(delta, camx, camz);
-		
-		//fpcc.update();
-		cPlayer.update(delta);
-		camx = (int) cam.position.x;
-		camy = (int) cam.position.y;
-		camz = (int) cam.position.z;
-		
-		for (GameObject go: this.objects.values()) {
-			go.update(delta, cam);
-		}
-		
-		objectsUniformSetter.update(delta, cam);
-		time += delta;
+		state.update(delta);
 		
 	}
 
 	public void draw(){
-		buffer.begin();
-		Gdx.gl.glClearColor(0, 0, 0, 1);
-		Gdx.gl.glViewport(0, 0, (int)(Gdx.graphics.getWidth()/PIXEL_FACTOR),
-								(int)(Gdx.graphics.getHeight()/PIXEL_FACTOR));
-		Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT | GL20.GL_DEPTH_BUFFER_BIT);
-		Gdx.gl.glEnable(Gdx.gl.GL_DEPTH_TEST);
-		
-		cam.update();
-		
-		floorArray.draw(Decals.getBatch(), camz, camx);
-		ceilArray.draw(Decals.getBatch(), camz, camx);
-		blockArray.draw(Decals.getBatch(), camz, camx);
-		
-		for (GameObject go: this.objects.values()) {
-			go.draw(Decals.getBatch(), cam);
-		}
-		
-		//
-		Decals.flush();
-		//Gdx.gl20.glDepthMask(true);
-		
-		buffer.end();
-		
-		sBatch.begin();
-		sBatch.draw(this.bufferRegion, 0, 0, Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
-		//userMap.draw(sBatch, camx, camz);
-		sBatch.end();
+		state.draw();
 		
 		
 	}
